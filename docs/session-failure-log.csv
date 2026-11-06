@@ -1,0 +1,6 @@
+failure_id,test_case_ids,automated_targeted_run_seconds,batch_localization_elapsed_seconds,suspected_method,note
+S-F01,S-P01 S-P03 S-P04 S-P05 S-P08 S-P09 S-P10 S-P11 S-P12 S-P13 S-P14,9.134,92,Session.addPin,Session stores the input and advances state without checking length or characters.
+S-F02,A-P01 A-P02 A-P06 A-P07 A-P13 A-P15,9.134,92,FormatChecker.checkPinFormat,The four-character length check accepts short digit-only PINs and rejects all five-digit PINs.
+S-F03,S-W02 S-W22,9.134,92,CashValidator.validateWithdrawal,The remainder check accepts zero and negative multiples without requiring a positive amount.
+S-F04,S-W10 S-W16,9.134,92,CashValidator.validateWithdrawal,Taking the remainder after using the maximum number of $50 bills misses valid combinations with fewer $50 bills.
+S-F05,S-W21,9.134,92,Session.setAmount,"The withdrawal path checks denominations and the bank checks the balance, so the dispensable $1020 passes without a daily-limit check. This is a specification-gap observation with the available starter."

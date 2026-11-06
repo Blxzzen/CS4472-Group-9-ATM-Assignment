@@ -1,0 +1,16 @@
+id,pin,valid
+A-P01,1234,false
+A-P02,12345,true
+A-P03,123456,false
+A-P04,"",false
+A-P05,1,false
+A-P06,00000,true
+A-P07,99999,true
+A-P08,/2345,false
+A-P09,:2345,false
+A-P10,12a45,false
+A-P11,12 45,false
+A-P12,1234٥,false
+A-P13,0000,false
+A-P14,9999,false
+A-P15,88888,true
