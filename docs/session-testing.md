@@ -101,10 +101,10 @@ Passing invalid-input cases demonstrate the observed exception. Some overlap wit
 | S-F02 | A-P01, A-P02, A-P06, A-P07, A-P13, A-P15 | [`FormatChecker.checkPinFormat`](../src/main/java/atm/utils/FormatChecker.java#L33) | The four-character length check accepts short digit-only PINs and rejects all five-digit PINs. |
 | S-F03 | S-W02, S-W22 | [`CashValidator.validateWithdrawal`](../src/main/java/atm/utils/CashValidator.java#L23) | The remainder check accepts zero and negative multiples without requiring a positive amount. |
 | S-F04 | S-W10, S-W16 | [`CashValidator.validateWithdrawal`](../src/main/java/atm/utils/CashValidator.java#L23) | Taking the remainder after using the maximum number of \$50 bills misses valid combinations with fewer \$50 bills. |
-| S-F05 | S-W21 | [`Session.setAmount`](../src/main/java/atm/session/Session.java#L87) | The withdrawal path checks denominations and the bank checks the balance, so the dispensable \$1020 passes without a daily-limit check. This is a specification-gap observation with the available starter. |
+| S-F05 | S-W21 | [`Session.setAmount`](../src/main/java/atm/session/Session.java#L87) | The withdrawal path checks denominations and the bank checks the balance, so the dispensable \$1020 passes without a daily-limit check. The starter provides no way to configure the daily limit for this test. |
 
 `FormatChecker` also uses `>= '9'` in its digit condition. The five-digit `99999` case reaches the length failure first, so its result cannot independently establish a digit-boundary fault.
 
-## Evidence and contribution record
+## Test evidence
 
-The [Session failure log](session-failure-log.csv) records elapsed automated testing and the batch localization window for Assignment 3. The same timings apply to the batch and should be counted once. AI assistance drafted and revised the tests, ran validation, and prepared the report. Team members should record their own actual review and diagnosis time separately.
+The [Session failure log](session-failure-log.csv) records the targeted Maven run and the time spent localizing the failures as a batch. Each row repeats the batch timings. AI assistance was used for test development, validation, and documentation.
