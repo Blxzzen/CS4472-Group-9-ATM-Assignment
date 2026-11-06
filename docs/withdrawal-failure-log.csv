@@ -1,0 +1,4 @@
+failure_id,representative_test_cases,failing_case_count,targeted_run_finished_utc,automated_targeted_run_seconds,batch_localization_elapsed_seconds,suspected_location,note
+W-F01,W-0363 W-0368,385,2026-11-06T04:08:34.038216+00:00,4.07,29.573,FeesCalculator.calculateWithdrawalFee:12-15,Student weekend and weekday rates are reversed.
+W-F02,W-1110,105,2026-11-06T04:08:34.038216+00:00,4.07,29.573,FeesCalculator.calculateWithdrawalFee:19,Nonstudent rate below $1000 is 0.002 instead of 0.003.
+W-F03,W-1146,105,2026-11-06T04:08:34.038216+00:00,4.07,29.573,FeesCalculator.calculateWithdrawalFee:20,Middle fee tier ends at $10000 instead of $5000.
