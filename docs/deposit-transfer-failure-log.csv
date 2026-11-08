@@ -1,0 +1,10 @@
+failure_id,test_case_ids,automated_initial_run_seconds,batch_localization_elapsed_seconds,suspected_method,note
+D-F01,D-S01 D-S02 D-S07 D-S08 D-S10,3.386,41,FeesCalculator.calculateDepositInterest:39,The student amount condition uses > 100. These deposits exceed 50 but enter the low-deposit branch.
+D-F02,D-S04 D-S05,3.386,41,FeesCalculator.calculateDepositInterest:50,The low student amount and balance branch charges 0.2% where the fee should be zero.
+D-F03,D-N01 D-N02 D-N07 D-N08,3.386,41,FeesCalculator.calculateDepositInterest:54,The nonstudent amount condition uses > 500. These deposits exceed 250 but enter the low-deposit branch.
+D-F04,D-N03 D-N06,3.386,41,FeesCalculator.calculateDepositInterest:62,The branch above a nonstudent balance of 10000 charges 0.5% on small deposits where the fee should be zero.
+D-F05,D-N04 D-N05 D-N10,3.386,41,FeesCalculator.calculateDepositInterest:64,The branch at or below a nonstudent balance of 10000 charges zero on small deposits where the fee should be 0.1%.
+T-F01,T-R01I T-R01B T-R02I T-R02B T-R03I T-R03B T-R04I T-R04B T-X01 T-X02,3.386,41,FeesCalculator.calculateTransferFee:80,Student transfers below 200 encounter a cutoff of 100 and a source threshold of 1000. The rates in the small-transfer branch also exceed the specified rates.
+T-F02,T-R05I T-R05B T-R06I T-R06B T-R07I T-R07B T-R08I T-R08B T-X03 T-X04,3.386,41,FeesCalculator.calculateTransferFee:95,"For student transfers at or above 200, the source threshold is 1000 instead of 2000 and the four rates are ten times the specified rates."
+T-F03,T-R09I T-R09B T-R10I T-R10B T-R11I T-R11B T-R12I T-R12B T-X05 T-X06,3.386,41,FeesCalculator.calculateTransferFee:111,"For nonstudent transfers below 100, the source and destination cutoffs are both 1000 instead of 4000 and 2000, and the four rates are ten times the specified rates."
+T-F04,T-R13I T-R13B T-R14I T-R14B T-R15I T-R15B T-R16I T-R16B T-X07 T-X08 T-X09,3.386,41,FeesCalculator.calculateTransferFee:125,"For nonstudent transfers at or above 100, the source cutoff is 1000 instead of 2000 and the rates differ, including 5.5% instead of 0.25% in the last branch."

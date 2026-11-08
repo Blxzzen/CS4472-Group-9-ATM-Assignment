@@ -1,401 +1,149 @@
-# Deposit and Transfer Testing Review
-
-## Deposit: Weak Robust Equivalence Class Analysis
-
-### Test D-S01 — Incorrect Student Deposit Threshold
-
-**Class:** DS1  
-**Method:** `bank.utils.FeesCalculator.calculateDepositInterest`
-
-**Inputs:**
-
-- Student: true
-- Amount: $100
-- Account balance: $1,000
-
-**Expected:** $0.50 (0.5% of $100)  
-**Actual:** $0.20 (0.2% of $100)  
-**Result:** FAIL
-
-**Fault localization:**
-The implementation checks whether the student deposit amount exceeds $100 instead of the specified $50 threshold. Consequently, a $100 deposit is incorrectly classified under the lower deposit branch, returning $0.20 instead of the expected $0.50.
-
-**Additional observation:**
-The student high-deposit balance threshold and fee multipliers also differ from the specification. These require further examination across the other student equivalence classes.
-
-### Test D-S02 — Additional Evidence of Incorrect Student Threshold
-
-**Inputs:** Student = true, amount = $100, balance = $400.
-
-**Expected:** $0.25  
-**Actual:** $0.20  
-**Result:** FAIL
-
-D-S02 further demonstrates the incorrect student deposit threshold in `calculateDepositInterest`. The implementation checks whether the deposit exceeds $100 instead of the specified $50, causing this test to enter the wrong branch.
-
-**Fault group:** D-STUDENT-HIGH (same group as D-S01).
-
-### Tests D-S04 and D-S05 — Incorrect Fee for Small Student Deposits
-
-**Method:** `FeesCalculator.calculateDepositInterest`
-
-**Equivalence class:** DS4
-
-**Test cases:**
-
-- D-S04: Student, $25 deposit, $400 balance.
-- D-S05: Student, $50 deposit, $5,000 balance.
-
-**Expected:** $0.00 for both tests.
-
-**Calculated by implementation:**
-
-- D-S04: $0.05
-- D-S05: $0.10
-
-**Fault localization:**
-For student deposits of $50 or less with an account balance of $5,000 or less, the specification requires no fee. However, the implementation uses an interest multiplier of 0.002, charging 0.2% of the deposited amount.
-
-**Suspected faulty statement:** `interestPercentage = 0.002;`
-
-**Fault group:** D-STUDENT-LOW
-
-Both test cases expose the same incorrect fee calculation and can be grouped under one fault.
-
-### Tests D-N01, D-N02, D-N07, D-N08 — Incorrect Non-Student High-Deposit Logic
-
-**Method:** `FeesCalculator.calculateDepositInterest`
-
-**Equivalence classes:** DN1 and DN2
-
-**Test cases:**
-
-- D-N01: $400 deposit, $3,000 balance. Expected: $3.20.
-- D-N02: $400 deposit, $2,000 balance. Expected: $1.60.
-- D-N07: $250.01 deposit, $2,500 balance. Expected: $1.00004.
-- D-N08: $250.01 deposit, $2,500.01 balance. Expected: $2.00008.
-
-**Result:** All four tests FAIL.
-
-**Fault localization:**
-The implementation uses a non-student deposit threshold of $500 rather than the specified $250. Consequently, these deposits incorrectly enter the lower-deposit branch and return a fee of $0.00.
-
-Further inspection reveals that the high-deposit balance threshold is also incorrect ($5,000 instead of $2,500), and the fee multipliers are 0.01 and 0.005 instead of the required 0.008 and 0.004.
-
-**Suspected faulty conditions:**
-
-- `if (amount > 500.00)`
-- `if (accountBalance > 5000.00)`
-- `interestPercentage = 0.01`
-- `interestPercentage = 0.005`
-
-**Fault group:** D-NONSTUDENT-HIGH
-
-The four existing failures demonstrate incorrect branch selection. Additional tests with deposits exceeding $500 would help isolate the balance-threshold and fee-rate errors.
-
-### Tests D-N03, D-N04, D-N05, D-N06, D-N10 — Incorrect Non-Student Low-Deposit Fees
-
-**Method:** `FeesCalculator.calculateDepositInterest`
-
-**Equivalence classes:** DN3 and DN4
-
-**Test cases:**
-
-- D-N03: $100 deposit, $11,000 balance. Expected $0.00; actual $0.50.
-- D-N04: $100 deposit, $9,000 balance. Expected $0.10; actual $0.00.
-- D-N05: $250 deposit, $10,000 balance. Expected $0.25; actual $0.00.
-- D-N06: $250 deposit, $10,000.01 balance. Expected $0.00; actual $1.25.
-- D-N10: $100 deposit, $400 balance. Expected $0.10; actual $0.00.
-
-**Result:** All five tests FAIL.
-
-**Fault localization:**
-The implementation correctly uses $10,000 as the balance threshold but assigns incorrect fee multipliers to both branches. For balances greater than $10,000, it charges 0.5% instead of no fee. For balances of $10,000 or less, it charges no fee instead of the required 0.1%.
-
-**Suspected faulty statements:**
-
-- `interestPercentage = 0.005;` should be `0.0` for this branch.
-- `interestPercentage = 0.0;` should be `0.001` for this branch.
-
-**Fault group:** D-NONSTUDENT-LOW
-
-These five failures expose two incorrect fee calculations within the same low-deposit rule group.
-
-### Tests D-X01–D-X04 — Invalid-Input Equivalence Classes
-
-**Method:** `FeesCalculator.calculateDepositInterest`
-
-**Testing technique:** Weak Robust Equivalence Class Analysis
-
-**Test cases:**
-
-- D-X01: Student, negative deposit amount (-$1), valid balance ($3,000).
-- D-X02: Student, valid deposit amount ($100), negative balance (-$1).
-- D-X03: Non-student, negative deposit amount (-$1), valid balance ($3,000).
-- D-X04: Non-student, valid deposit amount ($100), negative balance (-$1).
-
-**Expected (provisional assumption):** An `IllegalArgumentException` should be thrown when a negative monetary input is provided.
-
-**Actual:** No exception was thrown for any of the four tests.
-
-**Result:** All four FAIL under the provisional assumption.
-
-**Analysis:**
-These tests extend the weak robust equivalence class analysis by examining potentially invalid inputs. Each test introduces only one negative monetary value while keeping the remaining inputs valid.
-
-Although all four tests failed, the assignment does not explicitly require `FeesCalculator` to reject negative amounts or balances by throwing `IllegalArgumentException`.
-
-Therefore, these results cannot be classified as confirmed specification violations without further clarification from the instructor or TA.
-
-**Fault classification:** U-FEE (assumption-dependent)
-
-These cases are retained as provisional tests rather than confirmed faults in the ATM implementation.
-
-## Transfer: Decision Table Analysis
-
-### Test T-R01I — Incorrect Student Transfer Threshold and Fee
-
-**Rule:** R01 (Student, small transfer)
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Inputs:**
-
-- Student: true
-- Transfer amount: $50
-- Source balance: $1,000
-- Destination balance: $500
-
-**Expected:** $0.05 (0.1% of $50)
-**Actual:** $2.50 (5% of $50)
-**Result:** FAIL
-
-**Fault localization:**
-The implementation checks whether the source account balance is less than $1,000 instead of the specified $2,000. As a result, this transfer enters the incorrect balance branch and applies a 5% fee, returning $2.50 rather than the expected $0.05.
-
-The implementation also contains incorrect fee multipliers in the student transfer branches.
-
-**Suspected faulty conditions:**
-
-- `if (fromAccountBalance < 1000.00)`
-- `feePercentage = 0.05;`
-
-**Fault group:** T-STUDENT-SMALL
-
-### Tests T-R02I, T-R03I, and T-R04I — Additional Student Small-Transfer Faults
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rules:** R02, R03, R04
-
-**Test cases:**
-
-- T-R02I: $50 transfer, $1,000 source balance, $2,000 destination balance. Expected: $0.025; actual: $1.25.
-- T-R03I: $50 transfer, $3,000 source balance, $500 destination balance. Expected: $0.025; actual: $2.50.
-- T-R04I: $50 transfer, $3,000 source balance, $2,000 destination balance. Expected: $0.0125; actual: $1.25.
-
-**Result:** All three FAIL.
-
-**Fault localization:**
-The implementation incorrectly uses a $1,000 source-balance threshold instead of the specified $2,000 for student transfers below $200.
-
-T-R02I enters the wrong source-balance branch because its $1,000 balance is not considered less than $1,000 by the implementation.
-
-T-R03I and T-R04I enter the appropriate balance branches but receive incorrect fee multipliers.
-
-**Suspected faulty conditions:**
-
-- `if (fromAccountBalance < 1000.00)`
-- Incorrect fee multipliers: `0.05` and `0.025`
-
-**Fault group:** T-STUDENT-SMALL
-
-Together with T-R01I, these tests demonstrate incorrect threshold handling and fee calculations across all four small-transfer decision rules for students.
-
-### Tests T-R06I, T-R07I, and T-R08I — Incorrect Student Large-Transfer Logic
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rules:** R06, R07, R08
-
-**Test cases:**
-
-- T-R06I: $300 transfer, $1,000 source balance, $2,000 destination balance. Expected: $0.075; actual: $3.75.
-- T-R07I: $300 transfer, $3,000 source balance, $500 destination balance. Expected: $0.75; actual: $7.50.
-- T-R08I: $300 transfer, $3,000 source balance, $2,000 destination balance. Expected: $0.375; actual: $3.75.
-
-**Result:** All three FAIL.
-
-**Fault localization:**
-The implementation uses a source-balance threshold of $1,000 instead of the specified $2,000 for student transfers of $200 or more.
-
-This causes T-R06I to enter the wrong source-balance branch. T-R07I and T-R08I reach the appropriate balance branches but receive incorrect fee multipliers.
-
-The implementation assigns:
-
-- R06: 0.0125 (1.25%) instead of 0.00025 (0.025%).
-- R07: 0.025 (2.5%) instead of 0.0025 (0.25%).
-- R08: 0.0125 (1.25%) instead of 0.00125 (0.125%).
-
-**Suspected faulty statements:**
-
-- `if (fromAccountBalance < 1000.00)`
-- `feePercentage = 0.0125;`
-- `feePercentage = 0.025;`
-
-**Fault group:** T-STUDENT-LARGE
-
-Together with T-R05I, these tests demonstrate incorrect threshold handling and fee multipliers across all four large-transfer decision rules for students.
-
-### Tests T-R09I, T-R10I, T-R11I, and T-R12I — Incorrect Non-Student Small-Transfer Logic
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rules:** R09, R10, R11, R12
-
-**Test cases:**
-
-- T-R09I: $25 transfer, $2,000 source balance, $1,000 destination balance. Expected: $0.05; actual: $1.25.
-- T-R10I: $25 transfer, $2,000 source balance, $3,000 destination balance. Expected: $0.025; actual: $1.25.
-- T-R11I: $25 transfer, $5,000 source balance, $1,000 destination balance. Expected: $0.25; actual: $1.25.
-- T-R12I: $25 transfer, $5,000 source balance, $3,000 destination balance. Expected: $0.125; actual: $1.25.
-
-**Result:** All four FAIL.
-
-**Fault localization:**
-For non-student transfers below $100, the specification uses a $4,000 source-balance threshold and a $2,000 destination-balance threshold. However, the implementation uses $1,000 for both.
-
-Consequently, all four tests enter the same high-source/high-destination branch and receive a fee of 5%, even though they represent four different decision-table rules.
-
-The fee multipliers in this section are also incorrect. The specification requires 0.2%, 0.1%, 1%, and 0.5% across rules R09–R12, whereas the implementation uses 2%, 1%, 10%, and 5%.
-
-**Suspected faulty conditions:**
-
-- `if (fromAccountBalance < 1000.00)`
-- `if (toAccountBalance < 1000.00)`
-- Incorrect fee multipliers: `0.02`, `0.01`, `0.1`, and `0.05`
-
-**Fault group:** T-NONSTUDENT-SMALL
-
-These tests demonstrate how incorrect balance thresholds cause distinct decision-table rules to be treated identically, while incorrect fee multipliers produce further discrepancies.
-
-### Tests T-R13I, T-R14I, T-R15I, and T-R16I — Incorrect Non-Student Large-Transfer Logic
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rules:** R13, R14, R15, R16
-
-**Test cases:**
-
-- T-R13I: $200 transfer, $1,000 source balance, $500 destination balance. Expected: $0.40; actual: $10.00.
-- T-R14I: $200 transfer, $1,000 source balance, $2,000 destination balance. Expected: $0.20; actual: $11.00.
-- T-R15I: $200 transfer, $3,000 source balance, $500 destination balance. Expected: $1.00; actual: $10.00.
-- T-R16I: $200 transfer, $3,000 source balance, $2,000 destination balance. Expected: $0.50; actual: $11.00.
-
-**Result:** All four FAIL.
-
-**Fault localization:**
-For non-student transfers of $100 or more, the specification uses a source-balance threshold of $2,000 and a destination-balance threshold of $1,000. The implementation incorrectly uses a source-balance threshold of $1,000.
-
-Consequently, T-R13I and T-R14I enter the wrong source-balance branch. T-R15I and T-R16I enter the appropriate source-balance branch but still receive incorrect fee multipliers.
-
-The implementation also assigns incorrect fee rates. In particular, the final branch uses 0.055 (5.5%) instead of the specified 0.0025 (0.25%).
-
-**Suspected faulty conditions:**
-
-- `if (fromAccountBalance < 1000.00)`
-- Incorrect fee multipliers in the non-student large-transfer branches: `0.01`, `0.005`, `0.05`, and `0.055`
-
-**Fault group:** T-NONSTUDENT-LARGE
-
-These tests demonstrate incorrect threshold handling and fee calculations across all four non-student large-transfer rules.
-
-### Tests T-X01 and T-X02 — Incorrect Student Transfer Amount Threshold
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rules:**
-
-- T-X01: R01
-- T-X02: R03
-
-**Test cases:**
-
-- T-X01: Student, $150 transfer, $1,500 source balance, $500 destination balance.
-  - Expected: $0.15
-  - Actual: $3.75
-- T-X02: Student, $150 transfer, $2,500 source balance, $500 destination balance.
-  - Expected: $0.075
-  - Actual: $3.75
-
-**Result:** Both FAIL.
-
-**Fault localization:**
-The specification classifies student transfers below $200 as small transfers, but the implementation checks `amount < 100.00`. Consequently, both $150 transfers incorrectly enter the large-transfer branch.
-
-The implementation also uses an incorrect source-balance threshold of $1,000 instead of $2,000 and applies incorrect fee multipliers. Both tests therefore return $3.75 despite belonging to different decision-table rules.
-
-**Suspected faulty conditions:**
-
-- `if (amount < 100.00)`
-- `if (fromAccountBalance < 1000.00)`
-- `feePercentage = 0.025;`
-
-**Fault group:** T-STUDENT-SMALL
-
-These failures provide additional evidence of incorrect branching for student transfers below $200. They do not isolate the amount threshold independently because other conditions and rates are also incorrect.
-
-### Test T-R05I — Incorrect Student Large-Transfer Fee
-
-**Method:** `FeesCalculator.calculateTransferFee`
-
-**Decision table rule:** R05
-
-**Inputs:**
-
-- Student: true
-- Transfer amount: $300
-- Source balance: $1,000
-- Destination balance: $500
-
-**Expected:** $0.15 (0.05% of $300)
-**Actual:** $7.50 (2.5% of $300)
-**Result:** FAIL
-
-**Fault localization:**
-For student transfers of $200 or more, the specification requires a source-balance threshold of $2,000. However, the implementation checks whether the source balance is below $1,000.
-
-Because the source balance is exactly $1,000, the implementation incorrectly enters the higher-balance branch and applies a 2.5% fee instead of the required 0.05%.
-
-**Suspected faulty conditions:**
-
-- `if (fromAccountBalance < 1000.00)`
-- `feePercentage = 0.025;`
-
-**Fault group:** T-STUDENT-LARGE
-
-This test reveals incorrect branch selection and an incorrect fee multiplier. The remaining large-transfer decision rules should also be checked to confirm whether they expose related faults.
-
-### Transfer Boundary and Threshold Verification
-
-In addition to the representative decision-table test cases, I verified 16 boundary representatives (T-R01B through T-R16B) and seven supplementary threshold tests (T-X03 through T-X09).
-
-All 23 tests failed, and their observed results were consistent with the implementation's incorrect conditions and fee multipliers.
-
-The boundary tests provided additional evidence of the four previously identified fault groups:
-
-- **T-STUDENT-SMALL:** R01B–R04B confirm failures involving the incorrect student amount and source-balance thresholds and fee calculations.
-- **T-STUDENT-LARGE:** R05B–R08B and X03–X04 confirm incorrect source-balance threshold handling and fee multipliers for student transfers of $200 or more.
-- **T-NONSTUDENT-SMALL:** R09B–R12B and X05–X06 confirm incorrect source/destination balance thresholds and fee multipliers for non-student transfers below $100.
-- **T-NONSTUDENT-LARGE:** R13B–R16B and X07–X09 confirm incorrect source-balance threshold handling and fee multipliers for non-student transfers of $100 or more.
-
-**Overall transfer results:**
-
-- Total tests: 41
-- Passed: 0
-- Failed: 41
-- Errors: 0
-
-The results demonstrate that the implementation does not correctly calculate transfer fees according to the 16 decision-table rules. Testing values at and around decision boundaries also provides evidence that several incorrect conditions cause transactions to enter the wrong branches.
-
-All identified faults concern `bank.utils.FeesCalculator.calculateTransferFee`. No production code was modified.
+# Deposit and transfer fees
+
+## Process and assumptions
+
+Expected fees come from the **Deposit** and **Transfer** sections of Assignment 1.
+The tests use the balances before the transaction and cent-precision inputs.
+Expected fees use the specified percentages without rounding to cents. JUnit uses a tolerance of `1e-9`.
+
+### Deposit
+
+Weak robust equivalence class analysis selects a representative from each of the eight fee rules.
+Additional cases probe threshold equality and the next cent, and zero is included because the fee specification gives no positive minimum.
+For the robustness cases, one monetary input is negative while the other remains nominal.
+The specification gives no expected fee or exception for those four inputs. The calculator runs for each and Surefire records the observation as skipped.
+
+| Class | Student | Amount ($) | Balance ($) | Rate | Representative |
+|---|---|---|---|---|---|
+| DS1 | true | >50 | >500 | 0.5% | D-S01 |
+| DS2 | true | >50 | ≤500 | 0.25% | D-S02 |
+| DS3 | true | ≤50 | >5000 | 0.5% | D-S03 |
+| DS4 | true | ≤50 | ≤5000 | 0% | D-S04 |
+| DN1 | false | >250 | >2500 | 0.8% | D-N01 |
+| DN2 | false | >250 | ≤2500 | 0.4% | D-N02 |
+| DN3 | false | ≤250 | >10000 | 0% | D-N03 |
+| DN4 | false | ≤250 | ≤10000 | 0.1% | D-N04 |
+
+### Transfer
+
+Decision table analysis crosses the amount range, source balance and destination balance for each customer type.
+The 16 rules each have an interior and a boundary representative. Nine additional cases probe thresholds and overlapping ranges.
+Fee tests treat the three monetary inputs independently. The threshold comparisons place equality in the upper range.
+
+| Rule | Student | Amount ($) | From ($) | To ($) | Rate |
+|---|---|---|---|---|---|
+| R01 | true | <200 | <2000 | <1000 | 0.1% |
+| R02 | true | <200 | <2000 | ≥1000 | 0.05% |
+| R03 | true | <200 | ≥2000 | <1000 | 0.05% |
+| R04 | true | <200 | ≥2000 | ≥1000 | 0.025% |
+| R05 | true | ≥200 | <2000 | <1000 | 0.05% |
+| R06 | true | ≥200 | <2000 | ≥1000 | 0.025% |
+| R07 | true | ≥200 | ≥2000 | <1000 | 0.25% |
+| R08 | true | ≥200 | ≥2000 | ≥1000 | 0.125% |
+| R09 | false | <100 | <4000 | <2000 | 0.2% |
+| R10 | false | <100 | <4000 | ≥2000 | 0.1% |
+| R11 | false | <100 | ≥4000 | <2000 | 1% |
+| R12 | false | <100 | ≥4000 | ≥2000 | 0.5% |
+| R13 | false | ≥100 | <2000 | <1000 | 0.2% |
+| R14 | false | ≥100 | <2000 | ≥1000 | 0.1% |
+| R15 | false | ≥100 | ≥2000 | <1000 | 0.5% |
+| R16 | false | ≥100 | ≥2000 | ≥1000 | 0.25% |
+
+## Cases and results
+
+The clean Java 11 run produced 4 passes, 16 assertion failures and 4 observations for deposit.
+All 41 transfer cases failed assertions. Both suites reported zero errors.
+Amounts and fees are in dollars.
+
+### Deposit results
+
+| ID | Class | Amount | Balance | Student | Expected fee | Observed fee | Result |
+|---|---|---|---|---|---|---|---|
+| D-S01 | DS1 | 100 | 1000 | true | 0.500 | 0.2 | Fail (D-F01) |
+| D-S02 | DS2 | 100 | 400 | true | 0.2500 | 0.2 | Fail (D-F01) |
+| D-S03 | DS3 | 25 | 6000 | true | 0.125 | Matches expected | Pass |
+| D-S04 | DS4 | 25 | 400 | true | 0 | 0.05 | Fail (D-F02) |
+| D-N01 | DN1 | 400 | 3000 | false | 3.200 | 0 | Fail (D-F03) |
+| D-N02 | DN2 | 400 | 2000 | false | 1.600 | 0 | Fail (D-F03) |
+| D-N03 | DN3 | 100 | 11000 | false | 0 | 0.5 | Fail (D-F04) |
+| D-N04 | DN4 | 100 | 9000 | false | 0.100 | 0 | Fail (D-F05) |
+| D-S05 | DS4 | 50 | 5000 | true | 0 | 0.1 | Fail (D-F02) |
+| D-S06 | DS3 | 50 | 5000.01 | true | 0.250 | Matches expected | Pass |
+| D-S07 | DS2 | 50.01 | 500 | true | 0.125025 | 0.10002 | Fail (D-F01) |
+| D-S08 | DS1 | 50.01 | 500.01 | true | 0.25005 | 0.10002 | Fail (D-F01) |
+| D-N05 | DN4 | 250 | 10000 | false | 0.250 | 0 | Fail (D-F05) |
+| D-N06 | DN3 | 250 | 10000.01 | false | 0 | 1.25 | Fail (D-F04) |
+| D-N07 | DN2 | 250.01 | 2500 | false | 1.00004 | 0 | Fail (D-F03) |
+| D-N08 | DN1 | 250.01 | 2500.01 | false | 2.00008 | 0 | Fail (D-F03) |
+| D-S09 | DS4 | 0 | 0 | true | 0 | Matches expected | Pass |
+| D-N09 | DN4 | 0 | 0 | false | 0.000 | Matches expected | Pass |
+| D-S10 | DS1 | 100 | 3000 | true | 0.500 | 0.2 | Fail (D-F01) |
+| D-N10 | DN4 | 100 | 400 | false | 0.100 | 0 | Fail (D-F05) |
+| D-X01 | Negative amount | -1 | 3000 | true | Unspecified | -0.002 | Observation |
+| D-X02 | Negative balance | 100 | -1 | true | Unspecified | 0.2 | Observation |
+| D-X03 | Negative amount | -1 | 3000 | false | Unspecified | -0 | Observation |
+| D-X04 | Negative balance | 100 | -1 | false | Unspecified | 0 | Observation |
+
+### Transfer results
+
+| ID | Rule | Amount | From | To | Student | Expected fee | Observed fee | Result |
+|---|---|---|---|---|---|---|---|---|
+| T-R01I | R01 | 50.0 | 1000.0 | 500.0 | true | 0.0500 | 2.5 | Fail (T-F01) |
+| T-R01B | R01 | 199.99 | 1999.99 | 999.99 | true | 0.19999 | 4.999750000000001 | Fail (T-F01) |
+| T-R02I | R02 | 50.0 | 1000.0 | 2000 | true | 0.02500 | 1.25 | Fail (T-F01) |
+| T-R02B | R02 | 199.99 | 1999.99 | 1000 | true | 0.099995 | 2.4998750000000003 | Fail (T-F01) |
+| T-R03I | R03 | 50.0 | 3000 | 500.0 | true | 0.02500 | 2.5 | Fail (T-F01) |
+| T-R03B | R03 | 199.99 | 2000 | 999.99 | true | 0.099995 | 4.999750000000001 | Fail (T-F01) |
+| T-R04I | R04 | 50.0 | 3000 | 2000 | true | 0.012500 | 1.25 | Fail (T-F01) |
+| T-R04B | R04 | 199.99 | 2000 | 1000 | true | 0.0499975 | 2.4998750000000003 | Fail (T-F01) |
+| T-R05I | R05 | 300 | 1000.0 | 500.0 | true | 0.1500 | 7.5 | Fail (T-F02) |
+| T-R05B | R05 | 200 | 1999.99 | 999.99 | true | 0.1000 | 5 | Fail (T-F02) |
+| T-R06I | R06 | 300 | 1000.0 | 2000 | true | 0.07500 | 3.75 | Fail (T-F02) |
+| T-R06B | R06 | 200 | 1999.99 | 1000 | true | 0.05000 | 2.5 | Fail (T-F02) |
+| T-R07I | R07 | 300 | 3000 | 500.0 | true | 0.7500 | 7.5 | Fail (T-F02) |
+| T-R07B | R07 | 200 | 2000 | 999.99 | true | 0.5000 | 5 | Fail (T-F02) |
+| T-R08I | R08 | 300 | 3000 | 2000 | true | 0.37500 | 3.75 | Fail (T-F02) |
+| T-R08B | R08 | 200 | 2000 | 1000 | true | 0.25000 | 2.5 | Fail (T-F02) |
+| T-R09I | R09 | 25.0 | 2000.0 | 1000.0 | false | 0.0500 | 1.25 | Fail (T-F03) |
+| T-R09B | R09 | 99.99 | 3999.99 | 1999.99 | false | 0.19998 | 4.9995 | Fail (T-F03) |
+| T-R10I | R10 | 25.0 | 2000.0 | 3000 | false | 0.0250 | 1.25 | Fail (T-F03) |
+| T-R10B | R10 | 99.99 | 3999.99 | 2000 | false | 0.09999 | 4.9995 | Fail (T-F03) |
+| T-R11I | R11 | 25.0 | 5000 | 1000.0 | false | 0.250 | 1.25 | Fail (T-F03) |
+| T-R11B | R11 | 99.99 | 4000 | 1999.99 | false | 0.9999 | 4.9995 | Fail (T-F03) |
+| T-R12I | R12 | 25.0 | 5000 | 3000 | false | 0.1250 | 1.25 | Fail (T-F03) |
+| T-R12B | R12 | 99.99 | 4000 | 2000 | false | 0.49995 | 4.9995 | Fail (T-F03) |
+| T-R13I | R13 | 200 | 1000.0 | 500.0 | false | 0.400 | 10 | Fail (T-F04) |
+| T-R13B | R13 | 100 | 1999.99 | 999.99 | false | 0.200 | 5 | Fail (T-F04) |
+| T-R14I | R14 | 200 | 1000.0 | 2000 | false | 0.200 | 11 | Fail (T-F04) |
+| T-R14B | R14 | 100 | 1999.99 | 1000 | false | 0.100 | 5.5 | Fail (T-F04) |
+| T-R15I | R15 | 200 | 3000 | 500.0 | false | 1.000 | 10 | Fail (T-F04) |
+| T-R15B | R15 | 100 | 2000 | 999.99 | false | 0.500 | 5 | Fail (T-F04) |
+| T-R16I | R16 | 200 | 3000 | 2000 | false | 0.5000 | 11 | Fail (T-F04) |
+| T-R16B | R16 | 100 | 2000 | 1000 | false | 0.2500 | 5.5 | Fail (T-F04) |
+| T-X01 | R01 | 150 | 1500 | 500 | true | 0.150 | 3.75 | Fail (T-F01) |
+| T-X02 | R03 | 150 | 2500 | 500 | true | 0.0750 | 3.75 | Fail (T-F01) |
+| T-X03 | R05 | 200 | 1500 | 500 | true | 0.1000 | 5 | Fail (T-F02) |
+| T-X04 | R08 | 200 | 2000 | 1000 | true | 0.25000 | 2.5 | Fail (T-F02) |
+| T-X05 | R09 | 50 | 3000 | 1500 | false | 0.100 | 2.5 | Fail (T-F03) |
+| T-X06 | R11 | 50 | 4000 | 1500 | false | 0.50 | 2.5 | Fail (T-F03) |
+| T-X07 | R13 | 100 | 1500 | 500 | false | 0.200 | 5 | Fail (T-F04) |
+| T-X08 | R15 | 100 | 2000 | 500 | false | 0.500 | 5 | Fail (T-F04) |
+| T-X09 | R16 | 100 | 2000 | 1000 | false | 0.2500 | 5.5 | Fail (T-F04) |
+
+## Fault localization
+
+| Failure ID | Failing cases | Suspected location | Justification |
+|---|---|---|---|
+| D-F01 | D-S01, D-S02, D-S07, D-S08, D-S10 | [`calculateDepositInterest`](../src/main/java/bank/utils/FeesCalculator.java#L39) | The student amount condition uses > 100. These deposits exceed 50 but enter the low-deposit branch. |
+| D-F02 | D-S04, D-S05 | [`calculateDepositInterest`](../src/main/java/bank/utils/FeesCalculator.java#L50) | The low student amount and balance branch charges 0.2% where the fee should be zero. |
+| D-F03 | D-N01, D-N02, D-N07, D-N08 | [`calculateDepositInterest`](../src/main/java/bank/utils/FeesCalculator.java#L54) | The nonstudent amount condition uses > 500. These deposits exceed 250 but enter the low-deposit branch. |
+| D-F04 | D-N03, D-N06 | [`calculateDepositInterest`](../src/main/java/bank/utils/FeesCalculator.java#L62) | The branch above a nonstudent balance of 10000 charges 0.5% on small deposits where the fee should be zero. |
+| D-F05 | D-N04, D-N05, D-N10 | [`calculateDepositInterest`](../src/main/java/bank/utils/FeesCalculator.java#L64) | The branch at or below a nonstudent balance of 10000 charges zero on small deposits where the fee should be 0.1%. |
+| T-F01 | T-R01I, T-R01B, T-R02I, T-R02B, T-R03I, T-R03B, T-R04I, T-R04B, T-X01, T-X02 | [`calculateTransferFee`](../src/main/java/bank/utils/FeesCalculator.java#L80) | Student transfers below 200 encounter a cutoff of 100 and a source threshold of 1000. The rates in the small-transfer branch also exceed the specified rates. |
+| T-F02 | T-R05I, T-R05B, T-R06I, T-R06B, T-R07I, T-R07B, T-R08I, T-R08B, T-X03, T-X04 | [`calculateTransferFee`](../src/main/java/bank/utils/FeesCalculator.java#L95) | For student transfers at or above 200, the source threshold is 1000 instead of 2000 and the four rates are ten times the specified rates. |
+| T-F03 | T-R09I, T-R09B, T-R10I, T-R10B, T-R11I, T-R11B, T-R12I, T-R12B, T-X05, T-X06 | [`calculateTransferFee`](../src/main/java/bank/utils/FeesCalculator.java#L111) | For nonstudent transfers below 100, the source and destination cutoffs are both 1000 instead of 4000 and 2000, and the four rates are ten times the specified rates. |
+| T-F04 | T-R13I, T-R13B, T-R14I, T-R14B, T-R15I, T-R15B, T-R16I, T-R16B, T-X07, T-X08, T-X09 | [`calculateTransferFee`](../src/main/java/bank/utils/FeesCalculator.java#L125) | For nonstudent transfers at or above 100, the source cutoff is 1000 instead of 2000 and the rates differ, including 5.5% instead of 0.25% in the last branch. |
+
+The [deposit and transfer failure log](deposit-transfer-failure-log.csv) retains the failure IDs and timing evidence.
+
+Each log row repeats the same batch timings from the integrated review. The automated run time includes the entire Maven run.

@@ -114,6 +114,7 @@ jobs:
           ]
           reports = sorted(Path('target/surefire-reports').glob('TEST-*.xml'))
           rows = []
+          failures = {}
           counts = {'Passed': 0, 'Failed': 0, 'Error': 0, 'Skipped': 0}
           for report in reports:
               for case in ET.parse(report).getroot().iter('testcase'):
@@ -127,6 +128,9 @@ jobs:
                   counts[status] += 1
                   name = f"{case.get('classname', '')}.{case.get('name', '')}"
                   rows.append(f'| {cell(name)} | {status} | {cell(detail)} |')
+                  if status in ('Failed', 'Error'):
+                      case_id, marker, _ = detail.partition(' ==> ')
+                      failures.setdefault(report.stem[5:], []).append(case_id if marker else case.get('name', ''))
           if rows:
               lines += [', '.join(f'{name}: {count}' for name, count in counts.items()), '',
                         '| Test case | Result | Detail |', '|---|---|---|']
@@ -136,6 +140,18 @@ jobs:
                   lines += [f'{len(rows) - 60} additional test cases are in the downloadable reports.']
           else:
               lines += ['No JUnit test results were produced. Check the Maven log; this is not a passing suite.']
+
+          if failures:
+              lines += ['', '### Failing JUnit cases', '']
+              for suite, case_ids in failures.items():
+                  lines += [f'**{cell(suite)}** ({len(case_ids)})', '']
+                  for start in range(0, len(case_ids), 25):
+                      row = ', '.join(cell(case_id) for case_id in case_ids[start:start + 25])
+                      if sum(map(len, lines)) + len(row) > 55000:
+                          lines.append('See the downloadable JUnit XML for the remaining failures.')
+                          break
+                      lines.append(f'- {row}')
+                  lines.append('')
 
           lines += ['', '### JaCoCo coverage']
           coverage = Path('target/site/jacoco/jacoco.xml')
